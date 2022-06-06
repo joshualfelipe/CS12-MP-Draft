@@ -1,7 +1,7 @@
 #|
 
     [] Egg launching
-    [] Platform placement and movement
+    [/] Platform placement and movement
     [] Platform landing
     [] Lives and game over
     [] Next stage panning
@@ -55,7 +55,35 @@ BOTTOM-PLATFORM-Y = 400
 PLATFORM-DY = 1
 MAX-PLATFORM-SPEED = 5
 
+
+
+### DRAW ###
+
+fun draw-platform(platform :: Platform, img :: Image) -> Image:
+  doc: " Draws a specific platform "
+  
+    platform-img = rectangle(PLATFORM-WIDTH, PLATFORM-HEIGHT, "solid", PLATFORM-COLOR)
+    I.place-image(platform-img, platform.x, platform.y, img)
+end
+
+fun draw-handler(state :: State) -> Image:
+  doc: " Draws all the elements used "
+  
+  canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "white")
+  canvas
+    ^ draw-platform(state.top-platform, _)
+    ^ draw-platform(state.middle-platform, _)
+    ^ draw-platform(state.bottom-platform, _)
+end
+
+
+
+
+### TICKS ###
+
 fun generate-platforms(initial-y) -> Platform:
+  doc: " Creates random platform values "
+  
   fun generate-random-x-positon(num):
     if ((num + PLATFORM-WIDTH) > SCREEN-WIDTH) or ((num - PLATFORM-WIDTH) < 0):
       generate-random-x-positon(num-random(SCREEN-WIDTH))
@@ -74,46 +102,28 @@ fun generate-platforms(initial-y) -> Platform:
   {x: generate-random-x-positon(num-random(SCREEN-WIDTH)), y: initial-y, dx: generate-random-dx(num-random(MAX-PLATFORM-SPEED)), dy: PLATFORM-DY}
 end
 
-INITIAL-STATE = {
-  game-status : transitioning(1),
-  top-platform : generate-platforms(TOP-PLATFORM-Y),
-  middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
-  bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
-  other-platforms : [list: generate-platforms(-200), generate-platforms(-50)],
-  
-}
 
-#generate-platforms(TOP-PLATFORM-Y), generate-platforms(MIDDLE-PLATFORM-Y), generate-platforms(BOTTOM-PLATFORM-Y)
-
-
-### DRAW ###
-
-fun draw-platform(platform :: Platform, img :: Image) -> Image:
-    platform-img = rectangle(PLATFORM-WIDTH, PLATFORM-HEIGHT, "solid", PLATFORM-COLOR)
-    I.place-image(platform-img, platform.x, platform.y, img)
-end
-
-fun draw-handler(state :: State) -> Image:
-  canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "white")
-  canvas
-    ^ draw-platform(state.top-platform, _)
-    ^ draw-platform(state.middle-platform, _)
-    ^ draw-platform(state.bottom-platform, _)
-end
-
-
-
-
-### TICKS ###
 
 fun create-new-platforms(state):
+  doc: " Used for grabbing the elements on other-platforms list "
+  
   {state.other-platforms.get(0);
     state.other-platforms.get(1)}
 end
 
 
 
+fun make-pair-platforms():
+  doc: " Creates a new pair of top and middle platforms respectively for transitioning. "
+  
+  [list: generate-platforms(-200), generate-platforms(-50)]
+end
+
+
+
 fun check-platform-side-collision(platform :: Platform):
+  doc: " Checks if platform hits the side walls. If so, negate dx. "
+  
   if (platform.x + (PLATFORM-WIDTH / 2)) > SCREEN-WIDTH:
     platform.{dx: platform.dx * -1}
     
@@ -127,7 +137,10 @@ fun check-platform-side-collision(platform :: Platform):
 end
 
 
+
 fun update-platforms-x(state :: State):
+  doc: " Used for horizontal movement. If platform hits wall, must move away "
+  
   top = check-platform-side-collision(state.top-platform)
   new-top = top.{x: top.x + top.dx}
 
@@ -145,6 +158,7 @@ end
 
 
 fun update-platforms-y(state :: State):
+  doc: " Used for transitioning. Moves down all platforms by 1 "
   top = state.top-platform
   new-top = top.{y: top.y + top.dy}
 
@@ -160,7 +174,7 @@ fun update-platforms-y(state :: State):
   {t; m} = new-vals
   
   if num-floor(new-top.y) == 400:
-    state.{game-status : ongoing, top-platform: t, middle-platform: m, bottom-platform: state.top-platform}
+    state.{game-status : ongoing, top-platform: t, middle-platform: m, bottom-platform: state.top-platform, other-platforms: state.other-platforms.drop(2).append(make-pair-platforms())}
     
   else if new-middle.y > SCREEN-HEIGHT:
     state.{top-platform: new-top, middle-platform: t, bottom-platform: m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
@@ -175,12 +189,12 @@ end
 
 
 
-
 fun tick-handler(state :: State) -> State:
   cases (GameStatus) state.game-status:
     | ongoing =>
       state
         ^ update-platforms-x(_)
+      
     | transitioning(ticks-left)=>
       state
         ^ update-platforms-y(_)
@@ -192,8 +206,16 @@ end
 
 
 
-
 ### MAIN ###
+
+INITIAL-STATE = {
+  game-status : transitioning(1),
+  top-platform : generate-platforms(TOP-PLATFORM-Y),
+  middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
+  bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
+  other-platforms : [list: generate-platforms(-200), generate-platforms(-50)], # randomized initial values
+  
+}
 
 world = reactor:
   title: 'CS 12 21.2 MP Demo',
