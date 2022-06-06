@@ -52,6 +52,7 @@ TOP-PLATFORM-Y = 100
 MIDDLE-PLATFORM-Y = 250
 BOTTOM-PLATFORM-Y = 400
 
+PLATFORM-DY = 1
 MAX-PLATFORM-SPEED = 5
 
 fun generate-platforms(initial-y) -> Platform:
@@ -70,7 +71,7 @@ fun generate-platforms(initial-y) -> Platform:
       num
     end
   end
-  {x: generate-random-x-positon(num-random(SCREEN-WIDTH)), y: initial-y, dx: generate-random-dx(num-random(MAX-PLATFORM-SPEED)), dy: 1.5}
+  {x: generate-random-x-positon(num-random(SCREEN-WIDTH)), y: initial-y, dx: generate-random-dx(num-random(MAX-PLATFORM-SPEED)), dy: PLATFORM-DY}
 end
 
 INITIAL-STATE = {
@@ -78,12 +79,11 @@ INITIAL-STATE = {
   top-platform : generate-platforms(TOP-PLATFORM-Y),
   middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
   bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
-  other-platforms : [list: ],
+  other-platforms : [list: generate-platforms(-200), generate-platforms(-50)],
   
 }
 
-
-
+#generate-platforms(TOP-PLATFORM-Y), generate-platforms(MIDDLE-PLATFORM-Y), generate-platforms(BOTTOM-PLATFORM-Y)
 
 
 ### DRAW ###
@@ -95,7 +95,6 @@ end
 
 fun draw-handler(state :: State) -> Image:
   canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "white")
-  
   canvas
     ^ draw-platform(state.top-platform, _)
     ^ draw-platform(state.middle-platform, _)
@@ -103,17 +102,16 @@ fun draw-handler(state :: State) -> Image:
 end
 
 
-fun create-new-platforms(state) -> State:
-  #|state.{bottom-platform :  state.top-platform,
-    top-platform : generate-platforms(TOP-PLATFORM-Y + 300),
-    middle-platform : generate-platforms(MIDDLE-PLATFORM-Y + 300)}|#
-  ...
-end
-
-
 
 
 ### TICKS ###
+
+fun create-new-platforms(state):
+  {state.other-platforms.get(0);
+    state.other-platforms.get(1)}
+end
+
+
 
 fun check-platform-side-collision(platform :: Platform):
   if (platform.x + (PLATFORM-WIDTH / 2)) > SCREEN-WIDTH:
@@ -158,14 +156,21 @@ fun update-platforms-y(state :: State):
   bottom = state.bottom-platform
   new-bottom = bottom.{y: bottom.y + bottom.dy}
   
-  if new-top.y == 400:
-    state.{game-status : ongoing}
+  new-vals = create-new-platforms(state)
+  {t; m} = new-vals
+  
+  if num-floor(new-top.y) == 400:
+    state.{game-status : ongoing, top-platform: t, middle-platform: m, bottom-platform: state.top-platform}
+    
+  else if new-middle.y > SCREEN-HEIGHT:
+    state.{top-platform: new-top, middle-platform: t, bottom-platform: m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
+    
+  else if new-bottom.y > SCREEN-HEIGHT:
+    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
     
   else:
-      state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom}
+    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
   end
-
-
 end
 
 
@@ -179,6 +184,7 @@ fun tick-handler(state :: State) -> State:
     | transitioning(ticks-left)=>
       state
         ^ update-platforms-y(_)
+
         
     | game-over => state
   end
