@@ -41,6 +41,8 @@ type State = {
   top-platform :: Platform,
   middle-platform :: Platform,
   bottom-platform :: Platform,
+  pre-platform-1 :: Platform,
+  pre-platform-2 :: Platform,
   other-platforms :: List<Platform>,
 }
 
@@ -61,13 +63,14 @@ PLATFORM-WIDTH = 60
 PLATFORM-HEIGHT = 10
 PLATFORM-COLOR = "red"
 
-TOP-PLATFORM-Y = 100
+TOP-PLATFORM-Y = 125
 MIDDLE-PLATFORM-Y = 250
-BOTTOM-PLATFORM-Y = 400
+BOTTOM-PLATFORM-Y = 375
+
+DEFAULT-HIDDEN-PLATFORM = {x: 0, y: -5, dx: 0, dy:0}
 
 PLATFORM-DY = 1
 MAX-PLATFORM-SPEED = 5
-
 
 
 ### DRAW ###
@@ -87,7 +90,9 @@ fun draw-handler(state :: State) -> Image:
     ^ draw-platform(state.top-platform, _)
     ^ draw-platform(state.middle-platform, _)
     ^ draw-platform(state.bottom-platform, _)
-    ^ draw-egg(state.egg, _)
+    ^ draw-platform(state.pre-platform-1, _)
+    ^ draw-platform(state.pre-platform-2, _)
+	^ draw-egg(state.egg, _)
 end
 
 fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
@@ -161,11 +166,10 @@ end
 
 
 
-fun create-new-platforms(state):
+fun get-new-platforms(state):
   doc: " Used for grabbing the elements on other-platforms list "
   
-  {state.other-platforms.get(0);
-    state.other-platforms.get(1)}
+  {state.other-platforms.get(0); state.other-platforms.get(1)}
 end
 
 
@@ -173,7 +177,7 @@ end
 fun make-pair-platforms():
   doc: " Creates a new pair of top and middle platforms respectively for transitioning. "
   
-  [list: generate-platforms(-200), generate-platforms(-50)]
+  [list: generate-platforms(1), generate-platforms(-124)]
 end
 
 
@@ -212,8 +216,6 @@ fun update-platforms-x(state :: State):
   state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom}
 end
 
-
-
 fun update-platforms-y(state :: State):
   doc: " Used for transitioning. Moves down all platforms by 1 "
   top = state.top-platform
@@ -227,20 +229,25 @@ fun update-platforms-y(state :: State):
   bottom = state.bottom-platform
   new-bottom = bottom.{y: bottom.y + bottom.dy}
   
-  new-vals = create-new-platforms(state)
-  {t; m} = new-vals
+  new-vals = get-new-platforms(state)
+  {m; t} = new-vals
   
-  if num-floor(new-top.y) == 400: # When top reaches bottom position
-    state.{game-status : ongoing, top-platform: t, middle-platform: m, bottom-platform: state.top-platform, other-platforms: state.other-platforms.drop(2).append(make-pair-platforms())}
+  pre-plat-m = state.{pre-platform-1: m}.pre-platform-1
+  pre-plat-t = state.{pre-platform-2: t}.pre-platform-2
+  
+  # STOP TRANSITIONING -> ONGOING
+  if new-top.y == 375: # When top reaches bottom position
+    state.{game-status : ongoing, top-platform: pre-plat-t, middle-platform: pre-plat-m, bottom-platform: state.top-platform, pre-platform-1: DEFAULT-HIDDEN-PLATFORM, pre-platform-2: DEFAULT-HIDDEN-PLATFORM, other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()),}
     
-  else if new-middle.y > SCREEN-HEIGHT:
-    state.{top-platform: new-top, middle-platform: t, bottom-platform: m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
+  # TRANSITIONING  
+  else if (new-middle.y - 5) > SCREEN-HEIGHT:
+    state.{top-platform: new-top, middle-platform: pre-plat-t, bottom-platform: pre-plat-m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
     
-  else if new-bottom.y > SCREEN-HEIGHT:
-    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
-    
+  else if (new-bottom.y - 5) > SCREEN-HEIGHT:
+    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: pre-plat-m, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
+
   else: # Platforms are moving
-    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)}
+    state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom, other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end), pre-platform-1: pre-plat-m, pre-platform-2: pre-plat-t}
   end
 end
 
@@ -279,8 +286,11 @@ INITIAL-STATE = {
   top-platform : generate-platforms(TOP-PLATFORM-Y),
   middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
   bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
-  other-platforms : [list: generate-platforms(-200), generate-platforms(-50)], # randomized initial values
+  pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+  pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+  other-platforms : [list: generate-platforms(1), generate-platforms(-124)],
 }
+
 
 world = reactor:
   title: 'CS 12 21.2 MP Demo',
