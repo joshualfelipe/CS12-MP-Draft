@@ -1,11 +1,12 @@
+use context essentials2021
 
 #|
 
     [/] Egg launching
     [/] Platform placement and movement
     [/] Platform landing
-    [] Lives and game over
-    [P] Next stage panning
+    [/] Lives and game over
+    [/] Next stage panning
 
 |#
 import reactors as R
@@ -102,15 +103,15 @@ fun draw-lives(state :: State, img :: Image) -> Image:
   I.place-image(text-img, (8.65 * SCREEN-WIDTH) / 10, SCREEN-HEIGHT / 25, img)
 end
 
-#|fun draw-game-over(state :: State, img :: Image) -> Image:
+fun draw-game-over(state :: State, img :: Image) -> Image:
   cases (GameStatus) state.game-status:
     | ongoing => img
     | transitioning => img
     | game-over =>
-      text-img = text("GAME OVER", 48, "red")
-      I.place-image(text-img, SCREEN-WIDTH / 2, SCREEN-HEIGHT / 2, img)
+      text-img = text("GAME OVER", 48, "black")
+      I.overlay(text-img, img)
   end
-   end|#
+end
 
 fun draw-handler(state :: State) -> Image:
   doc: " Draws all the elements used "
@@ -124,7 +125,8 @@ fun draw-handler(state :: State) -> Image:
     ^ draw-platform(state.pre-platform-2, _)
     ^ draw-egg(state.egg, _)
     ^ draw-score(state, _)
-    ^ draw-lives(state, _)
+    ^ draw-lives(state, _) 
+    ^ draw-game-over(state, _)
 end
 
 fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
@@ -171,8 +173,35 @@ fun update-egg-ongoing(state :: State) -> State:
       is-airborne: false,
       ay: 0,
     }
-    state.{egg: landed-egg,
-      current-platform: next-platform(state.current-platform), score : state.score + 1}
+    state.{
+      egg: landed-egg,
+      current-platform: next-platform(state.current-platform),
+      score : state.score + 1
+    }
+    
+  else if state.egg.is-airborne and ((state.egg.y - EGG-RADIUS) > SCREEN-HEIGHT): # when egg dies
+    
+    new-life = state.lives - 1
+    
+    if (new-life == 0):
+      state.{
+        game-status: game-over,
+        lives: 0
+      }
+    else:
+      return-egg = state.egg.{
+        x: current-plat.x,
+        y: (current-plat.y - (PLATFORM-HEIGHT / 2)) - EGG-RADIUS,
+        dx: current-plat.dx,
+        dy: 0,
+        is-airborne: false,
+        ay: 0
+      }
+      state.{
+        egg: return-egg,
+        lives: new-life
+      }
+    end
 
   else if state.egg.is-airborne: # and not landed yet
     falling-egg = state.egg.{
@@ -404,6 +433,7 @@ fun key-handler(state :: State, key :: String) -> State:
         end
       | transitioning => state
       | game-over => 
+        INITIAL-STATE = 
         {
           game-status : ongoing,
           egg: {x: 0, y: BOTTOM-PLATFORM-Y - 25, dx: 0, dy: 0, ay: 0, is-airborne: false},
@@ -413,6 +443,15 @@ fun key-handler(state :: State, key :: String) -> State:
           pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
           pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
           other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
+            current-platform : bottom-lvl,
+            score : 0,
+            lives : DEFAULT-NUM-LIVES,
+        }
+        INITIAL-STATE.{
+          egg: INITIAL-STATE.egg.{
+          x: INITIAL-STATE.bottom-platform.x,
+              dx: INITIAL-STATE.bottom-platform.dx,
+            }
         }
     end
   else:
@@ -435,6 +474,8 @@ INITIAL-STATE = {
   score : 0,
   lives : DEFAULT-NUM-LIVES,
 }
+
+
 
 world = reactor:
   title: 'CS 12 21.2 MP Demo',

@@ -1,0 +1,3 @@
+- Egg Launching
+- Platform Landing
+- Lives and game over
