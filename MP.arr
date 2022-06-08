@@ -240,7 +240,7 @@ R.interact(world)
 
 
 
-#|fun draw-platforms(state :: State, img :: Image) -> Image:
+#| fun draw-platforms(state :: State, img :: Image) -> Image:
   # state.other-platforms.foldr(draw-platform(_, _), img)
   fun helper(lst :: List<Platform>, acc :: Image, i :: Number) -> Image:
     #|cases (List) lst:
