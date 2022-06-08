@@ -9,6 +9,7 @@ use context essentials2021
     [/] Next stage panning
 
 |#
+
 import reactors as R
 import image as I
 
@@ -94,16 +95,22 @@ fun draw-platform(platform :: Platform, img :: Image) -> Image:
 end
 
 fun draw-score(state :: State, img :: Image) -> Image:
+  doc: " Draws the game score "
+
   text-img = text(num-to-string(state.score), 28, "black")
   I.place-image(text-img, SCREEN-WIDTH / 2, SCREEN-HEIGHT / 15, img)
 end
 
 fun draw-lives(state :: State, img :: Image) -> Image:
+  doc: " Draws the player's remaining lives "
+
   text-img = text("Lives: " + num-to-string(state.lives), 18, "black")
   I.place-image(text-img, (8.65 * SCREEN-WIDTH) / 10, SCREEN-HEIGHT / 25, img)
 end
 
 fun draw-game-over(state :: State, img :: Image) -> Image:
+  doc: " Draws the game-over text "
+
   cases (GameStatus) state.game-status:
     | ongoing => img
     | transitioning => img
@@ -116,7 +123,7 @@ end
 fun draw-handler(state :: State) -> Image:
   doc: " Draws all the elements used "
 
-  canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "white")
+  canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "light-blue")
   canvas
     ^ draw-platform(state.top-platform, _)
     ^ draw-platform(state.middle-platform, _)
@@ -130,6 +137,8 @@ fun draw-handler(state :: State) -> Image:
 end
 
 fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
+  doc: " Draws the egg "
+
   egg-image = circle(EGG-RADIUS, "solid", EGG-COLOR)
   I.place-image(egg-image, egg-state.x, egg-state.y, current-img)
 end
@@ -146,8 +155,6 @@ fun tick-handler(state :: State) -> State:
     | transitioning =>
       state
         ^ update-platforms-y(_)
-        ^ update-egg-transition(_)
-
 
     | game-over => state
   end
@@ -218,13 +225,6 @@ fun update-egg-ongoing(state :: State) -> State:
     state.{egg: fixed-egg}
 
   end
-end
-
-fun update-egg-transition(state :: State) -> State:
-  doc: ```
-       ```
-  transitioning-egg = state.egg.{y: state.egg.y + TRANSITION-DY}
-  state.{egg: transitioning-egg}
 end
 
 fun egg-landed(state :: State) -> Boolean:
@@ -300,7 +300,7 @@ fun generate-platforms(initial-y) -> Platform:
     dx: generate-random-dx(num-random(MAX-PLATFORM-SPEED)), 
     dy: TRANSITION-DY
   }
-  # {x: SCREEN-WIDTH / 2, y: initial-y, dx: 0, dy: TRANSITION-DY} Stationary platforms for testing
+  # {x: SCREEN-WIDTH / 2, y: initial-y, dx: 0, dy: TRANSITION-DY} # Stationary platforms for testing
 end
 
 
@@ -371,6 +371,8 @@ fun update-platforms-y(state :: State):
   bottom = state.bottom-platform
   new-bottom = bottom.{y: bottom.y + bottom.dy}
 
+  transitioning-egg = state.egg.{y: state.egg.y + TRANSITION-DY}
+
   new-vals = get-new-platforms(state)
   {m; t} = new-vals
 
@@ -387,7 +389,8 @@ fun update-platforms-y(state :: State):
       pre-platform-1: DEFAULT-HIDDEN-PLATFORM, 
       pre-platform-2: DEFAULT-HIDDEN-PLATFORM, 
       other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()),
-      current-platform: bottom-lvl
+      current-platform: bottom-lvl,
+      egg: transitioning-egg,
     }
 
 
@@ -398,7 +401,8 @@ fun update-platforms-y(state :: State):
       middle-platform: pre-plat-t, 
       bottom-platform: pre-plat-m, 
       other-platforms: 
-        state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
+        state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end),
+      egg: transitioning-egg,
     }
 
   else if (new-bottom.y - 5) > SCREEN-HEIGHT:
@@ -406,7 +410,8 @@ fun update-platforms-y(state :: State):
       top-platform: new-top, 
       middle-platform: new-middle, 
       bottom-platform: pre-plat-m, 
-      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
+      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end),
+    egg: transitioning-egg,
     }
 
   else:
@@ -414,8 +419,11 @@ fun update-platforms-y(state :: State):
       top-platform: new-top, 
       middle-platform: new-middle, 
       bottom-platform: new-bottom, 
-      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end), pre-platform-1: pre-plat-m, 
-      pre-platform-2: pre-plat-t}
+      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end), 
+      pre-platform-1: pre-plat-m, 
+      pre-platform-2: pre-plat-t,
+      egg: transitioning-egg,
+    }
   end
 end
 
