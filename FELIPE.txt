@@ -1,0 +1,2 @@
+- Platform placement and movement
+- Next stage panning
