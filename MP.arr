@@ -1,9 +1,9 @@
-use context essentials2021
+
 #|
 
-    [] Egg launching
+    [/] Egg launching
     [/] Platform placement and movement
-    [] Platform landing
+    [/] Platform landing
     [] Lives and game over
     [P] Next stage panning
 
@@ -49,6 +49,8 @@ type State = {
   pre-platform-1 :: Platform,
   pre-platform-2 :: Platform,
   other-platforms :: List<Platform>,
+  score :: Number,
+  lives :: Number,
 }
 
 ### CONSTANTS ###
@@ -58,11 +60,11 @@ FPS = 60
 SCREEN-WIDTH = 300
 SCREEN-HEIGHT = 500
 
-A-DUE-TO-G = 2
+A-DUE-TO-G = 0.5
 
 EGG-RADIUS = 20
 EGG-COLOR = "peach-puff"
-EGG-JUMP-DY = -30
+EGG-JUMP-DY = -13.5
 
 PLATFORM-WIDTH = 60
 PLATFORM-HEIGHT = 10
@@ -77,6 +79,8 @@ DEFAULT-HIDDEN-PLATFORM = {x: 0, y: -5, dx: 0, dy:0}
 TRANSITION-DY = 1
 MAX-PLATFORM-SPEED = 5
 
+DEFAULT-NUM-LIVES = 12
+
 
 
 ### DRAW ###
@@ -87,6 +91,26 @@ fun draw-platform(platform :: Platform, img :: Image) -> Image:
   platform-img = rectangle(PLATFORM-WIDTH, PLATFORM-HEIGHT, "solid", PLATFORM-COLOR)
   I.place-image(platform-img, platform.x, platform.y, img)
 end
+
+fun draw-score(state :: State, img :: Image) -> Image:
+  text-img = text(num-to-string(state.score), 28, "black")
+  I.place-image(text-img, SCREEN-WIDTH / 2, SCREEN-HEIGHT / 15, img)
+end
+
+fun draw-lives(state :: State, img :: Image) -> Image:
+  text-img = text("Lives: " + num-to-string(state.lives), 18, "black")
+  I.place-image(text-img, (8.65 * SCREEN-WIDTH) / 10, SCREEN-HEIGHT / 25, img)
+end
+
+#|fun draw-game-over(state :: State, img :: Image) -> Image:
+  cases (GameStatus) state.game-status:
+    | ongoing => img
+    | transitioning => img
+    | game-over =>
+      text-img = text("GAME OVER", 48, "red")
+      I.place-image(text-img, SCREEN-WIDTH / 2, SCREEN-HEIGHT / 2, img)
+  end
+   end|#
 
 fun draw-handler(state :: State) -> Image:
   doc: " Draws all the elements used "
@@ -99,6 +123,8 @@ fun draw-handler(state :: State) -> Image:
     ^ draw-platform(state.pre-platform-1, _)
     ^ draw-platform(state.pre-platform-2, _)
     ^ draw-egg(state.egg, _)
+    ^ draw-score(state, _)
+    ^ draw-lives(state, _)
 end
 
 fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
@@ -143,10 +169,10 @@ fun update-egg-ongoing(state :: State) -> State:
       dx: next-plat.dx,
       dy: 0,
       is-airborne: false,
-      ay: 0
+      ay: 0,
     }
     state.{egg: landed-egg,
-      current-platform: next-platform(state.current-platform)}
+      current-platform: next-platform(state.current-platform), score : state.score + 1}
 
   else if state.egg.is-airborne: # and not landed yet
     falling-egg = state.egg.{
@@ -405,7 +431,9 @@ INITIAL-STATE = {
   pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
   pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
   other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
-  current-platform : bottom-lvl
+  current-platform : bottom-lvl,
+  score : 0,
+  lives : DEFAULT-NUM-LIVES,
 }
 
 world = reactor:
