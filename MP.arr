@@ -15,7 +15,7 @@ import image as I
 
 data GameStatus:
   | ongoing
-  | transitioning(ticks-left :: Number) # ticks-left may be the number of ticks left in the transition period
+  | transitioning # ticks-left may be the number of ticks left in the transition period
   | game-over
 end
 
@@ -43,12 +43,12 @@ type Egg = {
 
 type State = {
   game-status :: GameStatus,
-  egg:: Egg,
   top-platform :: Platform,
   middle-platform :: Platform,
   bottom-platform :: Platform,
+  pre-platform-1 :: Platform,
+  pre-platform-2 :: Platform,
   other-platforms :: List<Platform>,
-  current-platform :: PlatformLevel
 }
 
 ### CONSTANTS ###
@@ -68,9 +68,11 @@ PLATFORM-WIDTH = 60
 PLATFORM-HEIGHT = 10
 PLATFORM-COLOR = "red"
 
-TOP-PLATFORM-Y = 100
+TOP-PLATFORM-Y = 125
 MIDDLE-PLATFORM-Y = 250
-BOTTOM-PLATFORM-Y = 400
+BOTTOM-PLATFORM-Y = 375
+
+DEFAULT-HIDDEN-PLATFORM = {x: 0, y: -5, dx: 0, dy:0}
 
 TRANSITION-DY = 1
 MAX-PLATFORM-SPEED = 5
@@ -81,19 +83,21 @@ MAX-PLATFORM-SPEED = 5
 
 fun draw-platform(platform :: Platform, img :: Image) -> Image:
   doc: " Draws a specific platform "
-  
-    platform-img = rectangle(PLATFORM-WIDTH, PLATFORM-HEIGHT, "solid", PLATFORM-COLOR)
-    I.place-image(platform-img, platform.x, platform.y, img)
+
+  platform-img = rectangle(PLATFORM-WIDTH, PLATFORM-HEIGHT, "solid", PLATFORM-COLOR)
+  I.place-image(platform-img, platform.x, platform.y, img)
 end
 
 fun draw-handler(state :: State) -> Image:
   doc: " Draws all the elements used "
-  
+
   canvas = empty-color-scene(SCREEN-WIDTH, SCREEN-HEIGHT, "white")
   canvas
     ^ draw-platform(state.top-platform, _)
     ^ draw-platform(state.middle-platform, _)
     ^ draw-platform(state.bottom-platform, _)
+    ^ draw-platform(state.pre-platform-1, _)
+    ^ draw-platform(state.pre-platform-2, _)
     ^ draw-egg(state.egg, _)
 end
 
@@ -110,13 +114,13 @@ fun tick-handler(state :: State) -> State:
       state
         ^ update-platforms-x(_)
         ^ update-egg-ongoing(_)
-      
-    | transitioning(ticks-left)=>
+
+    | transitioning =>
       state
         ^ update-platforms-y(_)
         ^ update-egg-transition(_)
 
-        
+
     | game-over => state
   end
 end
@@ -129,10 +133,10 @@ fun update-egg-ongoing(state :: State) -> State:
        ```
   current-plat = current-platform-data(state)
   next-plat = next-platform-data(state)
-  
+
   if state.current-platform == top-lvl: # when egg at top, transition
-    state.{game-status: transitioning(0)}
-    
+    state.{game-status: transitioning}
+
   else if state.egg.is-airborne and egg-landed(state): # when egg lands
     landed-egg = state.egg.{
       y: (next-plat.y - (PLATFORM-HEIGHT / 2)) - EGG-RADIUS,
@@ -142,22 +146,22 @@ fun update-egg-ongoing(state :: State) -> State:
       ay: 0
     }
     state.{egg: landed-egg,
-        current-platform: next-platform(state.current-platform)}
-    
+      current-platform: next-platform(state.current-platform)}
+
   else if state.egg.is-airborne: # and not landed yet
     falling-egg = state.egg.{
       y: state.egg.y + state.egg.dy,
       dy: state.egg.dy + state.egg.ay
     }
     state.{egg: falling-egg}
-    
+
   else: # when egg on platform
     fixed-egg = state.egg.{
       x: state.egg.x + state.egg.dx,
       dx: current-plat.dx
     }
     state.{egg: fixed-egg}
-    
+
   end
 end
 
@@ -165,29 +169,29 @@ fun update-egg-transition(state :: State) -> State:
   doc: ```
        ```
   transitioning-egg = state.egg.{y: state.egg.y + TRANSITION-DY}
-    state.{egg: transitioning-egg}
+  state.{egg: transitioning-egg}
 end
 
 fun egg-landed(state :: State) -> Boolean:
   doc: " Checks if egg intersects with a platform "
-  
+
   fun egg-touches-platform-top(s :: State, next) -> Boolean:
     doc: " Top OF platform. Checks a range rather than if egg bottom point exactly matches platform top."
-    
+
     egg-bottom = state.egg.y + EGG-RADIUS
     platform-top = next.y - (PLATFORM-HEIGHT / 2)
     platform-center = next.y
     (platform-top <= egg-bottom) and (egg-bottom <= platform-center)
   end
-  
+
   next-plat = next-platform-data(state)
-  
+
   egg-falling = state.egg.dy > 0
- 
+
   egg-bounded-left-inclusive = (next-plat.x - (PLATFORM-WIDTH / 2)) <= state.egg.x
   egg-bounded-right-inclusive = state.egg.x <= (next-plat.x + (PLATFORM-WIDTH / 2))
   egg-within-platform = egg-bounded-left-inclusive and egg-bounded-right-inclusive
-  
+
   egg-falling and egg-within-platform and egg-touches-platform-top(state, next-plat)
 end
 
@@ -219,7 +223,7 @@ end
 
 fun generate-platforms(initial-y) -> Platform:
   doc: " Creates random platform values "
-  
+
   fun generate-random-x-positon(num):
     if ((num + PLATFORM-WIDTH) > SCREEN-WIDTH) or ((num - PLATFORM-WIDTH) < 0): # Edge case where platform is partially off screen
       generate-random-x-positon(num-random(SCREEN-WIDTH))
@@ -248,7 +252,7 @@ end
 
 fun get-new-platforms(state):
   doc: " Used for grabbing the elements on other-platforms list "
-  
+
   {state.other-platforms.get(0);
     state.other-platforms.get(1)}
 end
@@ -257,24 +261,24 @@ end
 
 fun make-pair-platforms():
   doc: " Creates a new pair of top and middle platforms respectively for transitioning. "
-  
-  [list: generate-platforms(-200), generate-platforms(-50)]
+
+  [list: generate-platforms(1), generate-platforms(-124)]
 end
 
 
 
 fun check-platform-side-collision(platform :: Platform):
   doc: " Checks if platform hits the side walls. If so, negate dx. "
-  
+
   if (platform.x + (PLATFORM-WIDTH / 2)) > SCREEN-WIDTH:
     platform.{dx: platform.dx * -1}
-    
+
   else if (platform.x - (PLATFORM-WIDTH / 2)) < 0:
     platform.{dx: platform.dx * -1}
-    
+
   else:
     platform.{dx: platform.dx * 1}
-    
+
   end
 end
 
@@ -282,7 +286,7 @@ end
 
 fun update-platforms-x(state :: State):
   doc: " Used for horizontal movement. If platform hits wall, must move away "
-  
+
   top = check-platform-side-collision(state.top-platform)
   new-top = top.{x: top.x + top.dx}
 
@@ -311,44 +315,52 @@ fun update-platforms-y(state :: State):
 
   bottom = state.bottom-platform
   new-bottom = bottom.{y: bottom.y + bottom.dy}
-  
+
   new-vals = get-new-platforms(state)
-  {t; m} = new-vals
-  
-  if num-floor(new-top.y) == 400: # When top reaches bottom position
+  {m; t} = new-vals
+
+  pre-plat-m = state.{pre-platform-1: m}.pre-platform-1
+  pre-plat-t = state.{pre-platform-2: t}.pre-platform-2
+
+  # STOP TRANSITIONING -> ONGOING
+  if new-top.y == 375:# When top reaches bottom position
     state.{
       game-status : ongoing, 
-      top-platform: t, 
-      middle-platform: m, 
+      top-platform: pre-plat-t, 
+      middle-platform: pre-plat-m, 
       bottom-platform: state.top-platform, 
+      pre-platform-1: DEFAULT-HIDDEN-PLATFORM, 
+      pre-platform-2: DEFAULT-HIDDEN-PLATFORM, 
       other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()),
       current-platform: bottom-lvl
     }
-    
-  else if new-middle.y > SCREEN-HEIGHT:
+
+
+    # TRANSITIONING  
+  else if (new-middle.y - 5) > SCREEN-HEIGHT:
     state.{
       top-platform: new-top, 
-      middle-platform: t, 
-      bottom-platform: m, 
-      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
+      middle-platform: pre-plat-t, 
+      bottom-platform: pre-plat-m, 
+      other-platforms: 
+        state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
     }
-    
-  else if new-bottom.y > SCREEN-HEIGHT:
+
+  else if (new-bottom.y - 5) > SCREEN-HEIGHT:
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
-      bottom-platform: m, 
+      bottom-platform: pre-plat-m, 
       other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
     }
-    
-  else: # Platforms are moving
+
+  else:
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
       bottom-platform: new-bottom, 
-      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end)
-    }
-    
+      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end), pre-platform-1: pre-plat-m, 
+      pre-platform-2: pre-plat-t}
   end
 end
 
@@ -364,7 +376,7 @@ fun key-handler(state :: State, key :: String) -> State:
         else: # Space does nothing when airborne
           state
         end
-      | transitioning(_) => state
+      | transitioning => state
       | game-over => 
         {
           game-status : ongoing,
@@ -372,7 +384,9 @@ fun key-handler(state :: State, key :: String) -> State:
           top-platform : generate-platforms(TOP-PLATFORM-Y),
           middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
           bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
-          other-platforms : [list: generate-platforms(-200), generate-platforms(-50)], # randomized initial values
+          pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+          pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+          other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
         }
     end
   else:
@@ -388,7 +402,9 @@ INITIAL-STATE = {
   top-platform : generate-platforms(TOP-PLATFORM-Y),
   middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
   bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
-  other-platforms : [list: generate-platforms(-200), generate-platforms(-50)], # randomized initial values
+  pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+  pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
+  other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
   current-platform : bottom-lvl
 }
 
@@ -407,21 +423,3 @@ world = reactor:
 end
 
 R.interact(world)
-
-#|fun draw-platforms(state :: State, img :: Image) -> Image:
-  # state.other-platforms.foldr(draw-platform(_, _), img)
-  fun helper(lst :: List<Platform>, acc :: Image, i :: Number) -> Image:
-    #|cases (List) lst:
-      | empty => acc
-      | link(f,r) => helper(r, draw-platform(f, acc))
-    end|#
-    if i > 1:
-      state.{top-platform: lst.get(i)}
-    else:
-      acc
-    end
-    
-  end
-
-  helper(state.other-platforms, img, 0)
-   end|#
