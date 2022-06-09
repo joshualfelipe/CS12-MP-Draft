@@ -121,6 +121,13 @@ fun draw-game-over(state :: State, img :: Image) -> Image:
   end
 end
 
+fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
+  doc: " Draws the egg "
+
+  egg-image = circle(EGG-RADIUS, "solid", EGG-COLOR)
+  I.place-image(egg-image, egg-state.x, egg-state.y, current-img)
+end
+
 fun draw-handler(state :: State) -> Image:
   doc: " Draws all the elements used "
 
@@ -135,13 +142,6 @@ fun draw-handler(state :: State) -> Image:
     ^ draw-score(state, _)
     ^ draw-lives(state, _) 
     ^ draw-game-over(state, _)
-end
-
-fun draw-egg(egg-state :: Egg, current-img :: Image) -> Image:
-  doc: " Draws the egg "
-
-  egg-image = circle(EGG-RADIUS, "solid", EGG-COLOR)
-  I.place-image(egg-image, egg-state.x, egg-state.y, current-img)
 end
 
 ### TICKS ###
@@ -184,11 +184,11 @@ fun update-airborne-egg(state :: State) -> State:
       current-platform: next-platform(state.current-platform),
       score : state.score + 1
     }
-    
+
   else if state.egg.is-airborne and ((state.egg.y - EGG-RADIUS) > SCREEN-HEIGHT): # when egg dies
-    
+
     new-life = state.lives - 1
-    
+
     if (new-life == 0):
       state.{
         game-status: game-over,
@@ -216,29 +216,29 @@ fun update-airborne-egg(state :: State) -> State:
     }
     state.{egg: falling-egg}
   end
-  
+
 end
 
 fun update-fixed-egg(state :: State) -> State:
   doc: " Updates egg when on platform "
-  
+
   current-plat = current-platform-data(state)
-  
+
   if state.current-platform == top-lvl: # when egg at top
     state.{game-status: transitioning}
-    
+
   else if not(state.egg.is-airborne):
     fixed-egg = state.egg.{
       x: state.egg.x + state.egg.dx,
       dx: current-plat.dx
     }
     state.{egg: fixed-egg}
-    
+
   else:
     state
-    
+
   end
-  
+
 end
 
 fun egg-landed(state :: State) -> Boolean:
@@ -375,21 +375,21 @@ fun update-stage(state :: State):
   pre-plat-t = state.{pre-platform-2: t}.pre-platform-2
 
   # STOP TRANSITIONING -> ONGOING
-  if (new-top.y - 1) == 375: # When top reaches bottom position, return to game state. Ensures that new-bottom platform is on correct y-coordinate
+  if (new-top.y - 1) == 375: # top platform reaches bottom position, return to game state.
     state.{
       game-status : ongoing, 
       top-platform: pre-plat-t, 
       middle-platform: pre-plat-m, 
       bottom-platform: state.top-platform, 
-      pre-platform-1: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
-      pre-platform-2: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
-      other-platforms: make-pair-platforms(state), # Deletes the 2 used platforms and generates new pair of platforms
+      pre-platform-1: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms
+      pre-platform-2: DEFAULT-HIDDEN-PLATFORM,
+      other-platforms: make-pair-platforms(state),
       current-platform: bottom-lvl,
       egg: transitioning-egg,
     }
 
     # TRANSITIONING  
-  else if (new-middle.y - 5) > SCREEN-HEIGHT: # If the original middle platform is outside the screen, change the value of middle-platform to the new onscreen top platform.
+  else if (new-middle.y - 5) > SCREEN-HEIGHT: # original middle platform is outside the screen, change the value of middle-platform to the new onscreen top platform.
     state.{
       top-platform: new-top, 
       middle-platform: pre-plat-t, 
@@ -398,16 +398,16 @@ fun update-stage(state :: State):
       egg: transitioning-egg,
     }
 
-  else if (new-bottom.y - 5) > SCREEN-HEIGHT: # If the original bottom platform is outside the screen, change the value of bottom-platform to the new onscreen middle platform.
+  else if (new-bottom.y - 5) > SCREEN-HEIGHT: # original bottom platform is outside the screen, change the value of bottom-platform to the new onscreen middle platform.
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
       bottom-platform: pre-plat-m, 
       other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end),
-    egg: transitioning-egg,
+      egg: transitioning-egg,
     }
 
-  else: # Updates the y coordinates of the offscreen platforms and draws them during transitioning.
+  else: # Updates the y coordinates and draws the offscreen platforms
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
@@ -432,9 +432,9 @@ fun key-handler(state :: State, key :: String) -> State:
         else: # Space does nothing when airborne
           state
         end
-        
+
       | transitioning => state
-        
+
       | game-over => 
         PLATFORM-GENERATION = {
           top-platform : generate-platforms(TOP-PLATFORM-Y),
@@ -453,16 +453,16 @@ fun key-handler(state :: State, key :: String) -> State:
           top-platform: PLATFORM-GENERATION.top-platform,
           middle-platform: PLATFORM-GENERATION.middle-platform,
           bottom-platform: PLATFORM-GENERATION.bottom-platform,
-          pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
-          pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
-          other-platforms : [list: generate-platforms(0), generate-platforms(-125)], # randomized initial values
+          pre-platform-1 : DEFAULT-HIDDEN-PLATFORM,
+          pre-platform-2 : DEFAULT-HIDDEN-PLATFORM,
+          other-platforms : [list: generate-platforms(0), generate-platforms(-125)],
           current-platform : bottom-lvl,
           score : 0,
           lives : DEFAULT-NUM-LIVES,
         }
-        
+
         INITIAL-STATE
-        
+
     end
   else:
     state
