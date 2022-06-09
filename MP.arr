@@ -342,7 +342,7 @@ end
 
 
 fun update-platforms-x(state :: State):
-  doc: " Used for horizontal movement. If platform hits wall, must move away "
+  doc: " Used for horizontal movement. If platform hits wall, it must move away "
 
   top = check-platform-side-collision(state.top-platform)
   new-top = top.{x: top.x + top.dx}
@@ -361,7 +361,7 @@ end
 
 
 fun update-platforms-y(state :: State):
-  doc: " Used for transitioning. Moves down all platforms by 1 "
+  doc: " Used for transitioning. Moves down all platforms and egg by TRANSITION-DY "
   top = state.top-platform
   new-top = top.{y: top.y + top.dy}
 
@@ -382,22 +382,22 @@ fun update-platforms-y(state :: State):
   pre-plat-t = state.{pre-platform-2: t}.pre-platform-2
 
   # STOP TRANSITIONING -> ONGOING
-  if new-top.y == 375:# When top reaches bottom position
+  if new-top.y == 375: # When top reaches bottom position, return to game state.
     state.{
       game-status : ongoing, 
       top-platform: pre-plat-t, 
       middle-platform: pre-plat-m, 
       bottom-platform: state.top-platform, 
-      pre-platform-1: DEFAULT-HIDDEN-PLATFORM, 
-      pre-platform-2: DEFAULT-HIDDEN-PLATFORM, 
-      other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()),
+      pre-platform-1: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
+      pre-platform-2: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
+      other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()), # Deletes the 2 used platforms and generates new pair of platforms
       current-platform: bottom-lvl,
       egg: transitioning-egg,
     }
 
 
     # TRANSITIONING  
-  else if (new-middle.y - 5) > SCREEN-HEIGHT:
+  else if (new-middle.y - 5) > SCREEN-HEIGHT: # If the original middle platform is outside the screen, change the value of middle-platform to the new onscreen top platform.
     state.{
       top-platform: new-top, 
       middle-platform: pre-plat-t, 
@@ -407,7 +407,7 @@ fun update-platforms-y(state :: State):
       egg: transitioning-egg,
     }
 
-  else if (new-bottom.y - 5) > SCREEN-HEIGHT:
+  else if (new-bottom.y - 5) > SCREEN-HEIGHT: # If the original bottom platform is outside the screen, change the value of bottom-platform to the new onscreen middle platform.
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
@@ -416,7 +416,7 @@ fun update-platforms-y(state :: State):
     egg: transitioning-egg,
     }
 
-  else:
+  else: # Updates the y coordinates of the offscreen platforms and draws them during transitioning.
     state.{
       top-platform: new-top, 
       middle-platform: new-middle, 
