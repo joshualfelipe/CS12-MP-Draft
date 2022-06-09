@@ -45,12 +45,14 @@ type Egg = {
 
 type State = {
   game-status :: GameStatus,
+  egg :: Egg,
   top-platform :: Platform,
   middle-platform :: Platform,
   bottom-platform :: Platform,
   pre-platform-1 :: Platform,
   pre-platform-2 :: Platform,
   other-platforms :: List<Platform>,
+  current-platform :: PlatformLevel,
   score :: Number,
   lives :: Number,
 }
