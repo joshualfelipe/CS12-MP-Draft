@@ -17,7 +17,7 @@ import image as I
 
 data GameStatus:
   | ongoing
-  | transitioning # ticks-left may be the number of ticks left in the transition period
+  | transitioning
   | game-over
 end
 
@@ -78,14 +78,13 @@ TOP-PLATFORM-Y = 125
 MIDDLE-PLATFORM-Y = 250
 BOTTOM-PLATFORM-Y = 375
 
-DEFAULT-HIDDEN-PLATFORM = {x: 0, y: -5, dx: 0, dy:0}
+HIDDEN-PLATFORM-Y-COORDINATE = -1 * (PLATFORM-HEIGHT / 2)
+DEFAULT-HIDDEN-PLATFORM = {x: 0, y: HIDDEN-PLATFORM-Y-COORDINATE, dx: 0, dy:0}
 
 TRANSITION-DY = 1
 MAX-PLATFORM-SPEED = 5
 
 DEFAULT-NUM-LIVES = 12
-
-
 
 ### DRAW ###
 
@@ -305,24 +304,12 @@ fun generate-platforms(initial-y) -> Platform:
   # {x: SCREEN-WIDTH / 2, y: initial-y, dx: 0, dy: TRANSITION-DY} # Stationary platforms for testing
 end
 
+fun make-pair-platforms(state :: State):
+  doc: " Creates a new pair of top and middle platforms respectively for transitioning. Also removes the 2 previously used platforms. "
 
-
-fun get-new-platforms(state):
-  doc: " Used for grabbing the elements on other-platforms list "
-
-  {state.other-platforms.get(0);
-    state.other-platforms.get(1)}
+  new-lst = [list: generate-platforms(0), generate-platforms(-125)]
+  state.other-platforms.drop(2).append(new-lst)
 end
-
-
-
-fun make-pair-platforms():
-  doc: " Creates a new pair of top and middle platforms respectively for transitioning. "
-
-  [list: generate-platforms(1), generate-platforms(-124)]
-end
-
-
 
 fun check-platform-side-collision(platform :: Platform):
   doc: " Checks if platform hits the side walls. If so, negate dx. "
@@ -339,18 +326,14 @@ fun check-platform-side-collision(platform :: Platform):
   end
 end
 
-
-
 fun update-platforms-x(state :: State):
   doc: " Used for horizontal movement. If platform hits wall, it must move away "
 
   top = check-platform-side-collision(state.top-platform)
   new-top = top.{x: top.x + top.dx}
 
-
   middle = check-platform-side-collision(state.middle-platform)
   new-middle = middle.{x: middle.x + middle.dx}
-
 
   bottom = check-platform-side-collision(state.bottom-platform)
   new-bottom = bottom.{x: bottom.x + bottom.dx}
@@ -358,31 +341,28 @@ fun update-platforms-x(state :: State):
   state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom}
 end
 
-
-
 fun update-platforms-y(state :: State):
   doc: " Used for transitioning. Moves down all platforms and egg by TRANSITION-DY "
   top = state.top-platform
   new-top = top.{y: top.y + top.dy}
 
-
   middle = state.middle-platform
   new-middle = middle.{y: middle.y + middle.dy}
-
 
   bottom = state.bottom-platform
   new-bottom = bottom.{y: bottom.y + bottom.dy}
 
+  # Egg is transitioning along with platforms
   transitioning-egg = state.egg.{y: state.egg.y + TRANSITION-DY}
 
-  new-vals = get-new-platforms(state)
-  {m; t} = new-vals
+  # Grabs the first two elements in other-platforms list
+  {m; t} =  {state.other-platforms.get(0); state.other-platforms.get(1)}
 
   pre-plat-m = state.{pre-platform-1: m}.pre-platform-1
   pre-plat-t = state.{pre-platform-2: t}.pre-platform-2
 
   # STOP TRANSITIONING -> ONGOING
-  if new-top.y == 375: # When top reaches bottom position, return to game state.
+  if (new-top.y - 1) == 375: # When top reaches bottom position, return to game state. Ensures that new-bottom platform is on correct y-coordinate
     state.{
       game-status : ongoing, 
       top-platform: pre-plat-t, 
@@ -390,11 +370,10 @@ fun update-platforms-y(state :: State):
       bottom-platform: state.top-platform, 
       pre-platform-1: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
       pre-platform-2: DEFAULT-HIDDEN-PLATFORM, # Resets hidden platforms when on game state
-      other-platforms: state.other-platforms.drop(2).append(make-pair-platforms()), # Deletes the 2 used platforms and generates new pair of platforms
+      other-platforms: make-pair-platforms(state), # Deletes the 2 used platforms and generates new pair of platforms
       current-platform: bottom-lvl,
       egg: transitioning-egg,
     }
-
 
     # TRANSITIONING  
   else if (new-middle.y - 5) > SCREEN-HEIGHT: # If the original middle platform is outside the screen, change the value of middle-platform to the new onscreen top platform.
@@ -402,8 +381,7 @@ fun update-platforms-y(state :: State):
       top-platform: new-top, 
       middle-platform: pre-plat-t, 
       bottom-platform: pre-plat-m, 
-      other-platforms: 
-        state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end),
+      other-platforms: state.other-platforms.map(lam(platform): platform.{y: platform.y + platform.dy} end),
       egg: transitioning-egg,
     }
 
@@ -452,7 +430,7 @@ fun key-handler(state :: State, key :: String) -> State:
           bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
           pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
           pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
-          other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
+          other-platforms : [list: generate-platforms(0), generate-platforms(-125)], # randomized initial values
             current-platform : bottom-lvl,
             score : 0,
             lives : DEFAULT-NUM-LIVES,
@@ -479,12 +457,11 @@ INITIAL-STATE = {
   bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
   pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
   pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
-  other-platforms : [list: generate-platforms(1), generate-platforms(-124)], # randomized initial values
+  other-platforms : [list: generate-platforms(0), generate-platforms(-125)], # randomized initial values
   current-platform : bottom-lvl,
   score : 0,
   lives : DEFAULT-NUM-LIVES,
 }
-
 
 
 world = reactor:

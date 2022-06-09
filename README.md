@@ -11,3 +11,11 @@
 	- [x] Documentation in `update-platform()`
 		- Specifically the if statements
 	- [ ] Modify `INITIAL-STATE` Logic to separate platform generation and egg copying
+
+- Pips' new modification to platforms
+	- Removed get-new-platforms and immediately used it in `update-platforms-y()`
+	- Made `make-pair-platforms()` able to add and remove existing platforms. 
+	- Changed list `other-platforms` pre-values to 0 and -125. 
+	- Changed new-top.y to (new-top.y - 1) in `update-platforms-y()` to ensure that all platforms align after transitioning.
+	- Added `HIDDEN-PLATFORM-Y-COORDINATE` to ensure dynamic change in hidden pre-platform-1 & 2 when height of platform is changed.
+	- Added comments on various parts of the code.
