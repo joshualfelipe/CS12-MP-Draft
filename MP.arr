@@ -151,11 +151,12 @@ fun tick-handler(state :: State) -> State:
     | ongoing =>
       state
         ^ update-platforms-x(_)
-        ^ update-egg-ongoing(_)
+        ^ update-fixed-egg(_)
+        ^ update-airborne-egg(_)
 
     | transitioning =>
       state
-        ^ update-platforms-y(_)
+        ^ update-stage(_)
 
     | game-over => state
   end
@@ -163,17 +164,14 @@ end
 
 #### EGGS ####
 
-fun update-egg-ongoing(state :: State) -> State:
+fun update-airborne-egg(state :: State) -> State:
   doc: ```
-       Game logic for the egg while game is ongoing
+       Updates egg while its airborne
        ```
   current-plat = current-platform-data(state)
   next-plat = next-platform-data(state)
 
-  if state.current-platform == top-lvl: # when egg at top, transition
-    state.{game-status: transitioning}
-
-  else if state.egg.is-airborne and egg-landed(state): # when egg lands
+  if state.egg.is-airborne and egg-landed(state): # when egg lands
     landed-egg = state.egg.{
       y: (next-plat.y - (PLATFORM-HEIGHT / 2)) - EGG-RADIUS,
       dx: next-plat.dx,
@@ -211,28 +209,43 @@ fun update-egg-ongoing(state :: State) -> State:
       }
     end
 
-  else if state.egg.is-airborne: # and not landed yet
+  else: # when egg airborne
     falling-egg = state.egg.{
       y: state.egg.y + state.egg.dy,
       dy: state.egg.dy + state.egg.ay
     }
     state.{egg: falling-egg}
+  end
+  
+end
 
-  else: # when egg on platform
+fun update-fixed-egg(state :: State) -> State:
+  doc: " Updates egg when on platform "
+  
+  current-plat = current-platform-data(state)
+  
+  if state.current-platform == top-lvl: # when egg at top
+    state.{game-status: transitioning}
+    
+  else if not(state.egg.is-airborne):
     fixed-egg = state.egg.{
       x: state.egg.x + state.egg.dx,
       dx: current-plat.dx
     }
     state.{egg: fixed-egg}
-
+    
+  else:
+    state
+    
   end
+  
 end
 
 fun egg-landed(state :: State) -> Boolean:
   doc: " Checks if egg intersects with a platform "
 
   fun egg-touches-platform-top(s :: State, next) -> Boolean:
-    doc: " Top OF platform. Checks a range rather than if egg bottom point exactly matches platform top."
+    doc: " Top OF platform. Checks a range in case egg's y does not exactly match platform's y."
 
     egg-bottom = state.egg.y + EGG-RADIUS
     platform-top = next.y - (PLATFORM-HEIGHT / 2)
@@ -341,7 +354,7 @@ fun update-platforms-x(state :: State):
   state.{top-platform: new-top, middle-platform: new-middle, bottom-platform: new-bottom}
 end
 
-fun update-platforms-y(state :: State):
+fun update-stage(state :: State):
   doc: " Used for transitioning. Moves down all platforms and egg by TRANSITION-DY "
   top = state.top-platform
   new-top = top.{y: top.y + top.dy}
@@ -419,28 +432,37 @@ fun key-handler(state :: State, key :: String) -> State:
         else: # Space does nothing when airborne
           state
         end
+        
       | transitioning => state
+        
       | game-over => 
-        INITIAL-STATE = 
-        {
-          game-status : ongoing,
-          egg: {x: 0, y: BOTTOM-PLATFORM-Y - 25, dx: 0, dy: 0, ay: 0, is-airborne: false},
+        PLATFORM-GENERATION = {
           top-platform : generate-platforms(TOP-PLATFORM-Y),
           middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
           bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
+        }
+        INITIAL-STATE = {
+          game-status : ongoing,
+          egg: {
+              x: PLATFORM-GENERATION.bottom-platform.x,
+              dx: PLATFORM-GENERATION.bottom-platform.dx, 
+              y: BOTTOM-PLATFORM-Y - 25,
+              dy: 0, ay: 0, 
+              is-airborne: false
+            },
+          top-platform: PLATFORM-GENERATION.top-platform,
+          middle-platform: PLATFORM-GENERATION.middle-platform,
+          bottom-platform: PLATFORM-GENERATION.bottom-platform,
           pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
           pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
           other-platforms : [list: generate-platforms(0), generate-platforms(-125)], # randomized initial values
-            current-platform : bottom-lvl,
-            score : 0,
-            lives : DEFAULT-NUM-LIVES,
+          current-platform : bottom-lvl,
+          score : 0,
+          lives : DEFAULT-NUM-LIVES,
         }
-        INITIAL-STATE.{
-          egg: INITIAL-STATE.egg.{
-          x: INITIAL-STATE.bottom-platform.x,
-              dx: INITIAL-STATE.bottom-platform.dx,
-            }
-        }
+        
+        INITIAL-STATE
+        
     end
   else:
     state
@@ -449,12 +471,24 @@ end
 
 ### MAIN ###
 
-INITIAL-STATE = {
-  game-status : ongoing,
-  egg: {x: 0, y: BOTTOM-PLATFORM-Y - 25, dx: 0, dy: 0, ay: 0, is-airborne: false},
+PLATFORM-GENERATION = {
   top-platform : generate-platforms(TOP-PLATFORM-Y),
   middle-platform : generate-platforms(MIDDLE-PLATFORM-Y),
   bottom-platform :  generate-platforms(BOTTOM-PLATFORM-Y),
+}
+
+INITIAL-STATE = {
+  game-status : ongoing,
+  egg: {
+      x: PLATFORM-GENERATION.bottom-platform.x,
+      dx: PLATFORM-GENERATION.bottom-platform.dx, 
+      y: BOTTOM-PLATFORM-Y - 25,
+      dy: 0, ay: 0, 
+      is-airborne: false
+    },
+  top-platform: PLATFORM-GENERATION.top-platform,
+  middle-platform: PLATFORM-GENERATION.middle-platform,
+  bottom-platform: PLATFORM-GENERATION.bottom-platform,
   pre-platform-1 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
   pre-platform-2 : DEFAULT-HIDDEN-PLATFORM, # OUTSIDE THE SCREEN PLATFORMS
   other-platforms : [list: generate-platforms(0), generate-platforms(-125)], # randomized initial values
@@ -466,12 +500,7 @@ INITIAL-STATE = {
 
 world = reactor:
   title: 'CS 12 21.2 MP Demo',
-  init: INITIAL-STATE.{
-      egg: INITIAL-STATE.egg.{
-          x: INITIAL-STATE.bottom-platform.x,
-          dx: INITIAL-STATE.bottom-platform.dx,
-        }
-    },
+  init: INITIAL-STATE,
   to-draw: draw-handler,
   seconds-per-tick: 1 / FPS,
   on-tick: tick-handler,
